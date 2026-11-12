@@ -2,30 +2,15 @@
 
 Milestone 1: System Design and Threat Model
 
-## Contents
-
-1. System Overview
-2. Roles
-3. Role-Permission Matrix
-4. Access Control Plan
-5. Threat Model
-6. Cryptographic Design
-7. Audit Logging
-8. Security Testing Plan
-9. Scope and Implementation Plan
-10. Requirements Coverage
-
----
-
 ## 1. System Overview
 
 WhisperChain+ lets people in a learning community (students, TAs, faculty) send each other
-anonymous compliments. The two properties we care about most pull in opposite directions.
+anonymous compliments. The two properties I care about most pull in opposite directions.
 Senders have to be anonymous, and message contents have to stay private. But the system
 also needs enough accountability to deal with abuse. Most of the design below is about
 balancing those two goals without leaning on any single party being trustworthy.
 
-We tried to keep the number of security mechanisms small and make each one count. Every
+I tried to keep the number of security mechanisms small and make each one count. Every
 mechanism in the design exists because the spec requires it or because it addresses a
 specific threat in Section 5:
 
@@ -92,7 +77,7 @@ encryption would be meaningless. Running the UI locally keeps keys inside the us
 boundary. It also means the server has no HTML at all, so it isn't exposed to cross-site
 scripting.
 
-### 1.3 What we trust
+### 1.3 What I trust
 
 Two rules shape the system. First, secrets stay on the client: the server only ever sees
 public keys and ciphertext. Second, sending is anonymous: messages are submitted with a
@@ -100,7 +85,7 @@ token instead of a login.
 
 | Component | Trusted for | Not trusted for |
 |---|---|---|
-| User's device (CLI and local web UI) | Holding their private keys, encrypting and decrypting | If it's compromised, that user's messages are exposed, and we can't do much about that |
+| User's device (CLI and local web UI) | Holding their private keys, encrypting and decrypting | If it's compromised, that user's messages are exposed, and there isn't much the system can do about that |
 | Server | Availability, and enforcing the rules (RBAC, quotas, freezes) | Message confidentiality or sender anonymity. Those are protected cryptographically, so they hold even if the server is curious or malicious. |
 | Admin | Approving users, roles, keys, and policy | Reading messages or identifying senders. The Admin account is a high-value target (see T1 through T4). |
 | Moderator | Judging flagged content | Seeing unflagged content or anyone's identity |
@@ -120,10 +105,10 @@ The spec asks for two things that don't fit together cleanly:
 - Moderators can freeze tokens to block future abuse from anonymous sources.
 
 Blocking someone's future messages means recognizing their future messages, and
-recognizing them means they're linkable to the earlier ones. So we can't have full
+recognizing them means they're linkable to the earlier ones. So I can't have full
 round-to-round unlinkability and freezes that follow the sender into later rounds at the
 same time. This is a real tradeoff between privacy and accountability, not an
-implementation detail. We considered three options:
+implementation detail. I considered three options:
 
 | Option | Privacy | Accountability | Complexity |
 |---|---|---|---|
@@ -131,7 +116,7 @@ implementation detail. We considered three options:
 | B. Token valid for N rounds | Weaker. The server can tell that the same pseudonym sent messages across N rounds, though not who it is. | A freeze blocks the rest of the N rounds, and counting flags per token becomes meaningful. | Same code with a different setting |
 | C. Escrowed identity (cut-and-choose or group signatures) | Unlinkable until an abuse threshold is hit | Full | High, and easy to get subtly wrong |
 
-We're going with **Option A as the default**, because it matches the spec's anonymity
+I'm going with **Option A as the default**, because it matches the spec's anonymity
 requirement exactly. In this mode, freezing a token means a few concrete things:
 
 - the token is revoked immediately
@@ -141,18 +126,18 @@ requirement exactly. In this mode, freezing a token means a few concrete things:
 Repeat abuse is still bounded, because nobody can get more than one token per round.
 
 The token lifetime is also an Admin policy setting, `token_validity_rounds`, defaulting to
-1. Raising it switches to Option B. That costs one integer in the code and lets us show the
-tradeoff in action. We don't claim that Option B gives the same anonymity as Option A; it
+1. Raising it switches to Option B. That costs one integer in the code and lets me show the
+tradeoff in action. I don't claim that Option B gives the same anonymity as Option A; it
 deliberately gives some up in exchange for longer-lasting freezes. Option C would satisfy
-both goals, but it brings in a lot more cryptography than a four-week project can implement
-and verify with confidence, so we left it out.
+both goals, but it brings in a lot more cryptography than I can implement
+and verify with confidence in a project of this size, so I left it out.
 
 ---
 
 ## 2. Roles
 
 One account can hold multiple roles. Most users will be Recipients, and some will also be
-Senders. We enforce one separation-of-duties rule: the same account can never be both an
+Senders. I enforce one separation-of-duties rule: the same account can never be both an
 Admin and a Moderator, and Admins can't change their own roles.
 
 **Sender.** Can request one anonymous token per round and send one encrypted message per
@@ -204,14 +189,14 @@ test. Denied requests return 403 and are recorded in the audit log as `access_de
 | (none) | View any unflagged message | No | Own only | No | No | No |
 | (none) | Learn who sent a message | No | No | No | No | No |
 
-The last row is a property of the design rather than a rule we enforce. No endpoint exposes
+The last row is a property of the design rather than a rule I enforce. No endpoint exposes
 sender identity, and the server never stores it in the first place.
 
 ---
 
 ## 4. Access Control Plan
 
-We use a hybrid model: **role-based access control** for everything a logged-in user does,
+I use a hybrid model: **role-based access control** for everything a logged-in user does,
 and **capabilities** for the one action that has to stay anonymous.
 
 ### 4.1 RBAC for identified actions
@@ -257,7 +242,7 @@ request.
 
 ### 4.3 Concurrency
 
-Quotas are enforced with database UNIQUE constraints inside a single transaction. We
+Quotas are enforced with database UNIQUE constraints inside a single transaction. I
 never check a quota first and insert afterward, because two concurrent requests could both
 pass the check before either one inserts.
 
@@ -291,16 +276,16 @@ pass the check before either one inserts.
 - the Admin account, which controls roles and keys
 - users' private keys
 
-For each threat we try to be honest about what's left over after our defenses, rather than
+For each threat I try to be honest about what's left over after my defenses, rather than
 claiming more than the design delivers.
 
 | # | Threat | Impact | Defense | Residual risk |
 |---|---|---|---|---|
 | T1 | Compromised Admin or server tries to read messages | Confidentiality | End-to-end encryption with private keys only on clients; no endpoint returns content to an Admin | None for existing messages. Future messages are at risk only if combined with T3. |
 | T2 | Compromised Admin or server tries to identify senders | Anonymity | Blind signatures mean issuance can't be matched to use; no user id is stored on messages or sender-side log entries; the issuance table is deleted when each round ends | Timing and traffic analysis (T9) |
-| T3 | Public key substitution: the Admin approves an attacker's key in place of Bob's | Future confidentiality | Clients pin each recipient's key fingerprint the first time they use it and refuse to send if it changes; key approvals are signed audit events; users can compare fingerprints in person | This is trust on first use. If the key is swapped before the first contact, pinning doesn't catch it; only an out-of-band fingerprint check does. We're assuming the directory is honest at first contact. |
+| T3 | Public key substitution: the Admin approves an attacker's key in place of Bob's | Future confidentiality | Clients pin each recipient's key fingerprint the first time they use it and refuse to send if it changes; key approvals are signed audit events; users can compare fingerprints in person | This is trust on first use. If the key is swapped before the first contact, pinning doesn't catch it; only an out-of-band fingerprint check does. I'm assuming the directory is honest at first contact. |
 | T4 | Compromised Admin creates fake Sender accounts or mints tokens (Sybil attack) | Spam, quota bypass | Registrations and role grants are signed audit events; an alert fires if tokens issued in a round exceed the number of active Senders | Anyone with the round signing key can mint tokens directly. With a single issuer there's no way to fully prevent that. |
-| T5 | A Sender shares their token with someone else | Accountability | Sharing doesn't create extra messages, since each token is good for one; a freeze applies no matter who used the token | This is inherent to bearer credentials. We can limit the damage, not prevent sharing. |
+| T5 | A Sender shares their token with someone else | Accountability | Sharing doesn't create extra messages, since each token is good for one; a freeze applies no matter who used the token | This is inherent to bearer credentials. I can limit the damage, not prevent sharing. |
 | T6 | Token forgery, reuse, or replay | Quota bypass | RSA-3072 with a full-domain hash; a UNIQUE `spent_tokens` table; the round id is part of what's signed, so old tokens don't validate; the message signature covers the round and recipient | Nothing practical without the signing key (see T4) |
 | T7 | Flooding or denial of service | Availability | One token and one message per round, request size limits, login rate limiting, an alert on repeated invalid tokens | Bounded by the number of Senders. Network-level DoS is out of scope. |
 | T8 | Repudiation ("I didn't send that" or "the server made that up") | Accountability | Each message is signed by a token key the server blind-certified, so it provably came from a valid token holder and can't be forged under that token without its private key. Privileged actions are logged with the actor's id and signed. Flags are checked against the sender's commitment. | Nonrepudiation here attaches to the anonymous token, not to a person, and that's intentional. The server's own log signatures only prove that the server recorded something, and are only as trustworthy as the server's key (T12). |
@@ -309,18 +294,18 @@ claiming more than the design delivers.
 | T11 | Curious Moderator | Privacy | Moderators only see content a recipient chose to reveal, never identities; the Admin/Moderator separation of duties; moderator actions are logged | Flagged content is disclosed to moderators on purpose |
 | T12 | Audit log tampering | Accountability | Append-only table, hash chain, per-entry signatures, and periodically copying the latest hash off the server (Section 7) | Someone with both the database and the audit key can rewrite history after the last copied hash |
 | T13 | Database theft | Confidentiality | Only ciphertext is stored; passwords are hashed with scrypt; session ids are stored hashed | Metadata like per-round message counts per recipient is exposed |
-| T14 | Privilege escalation or insecure direct object references | All | Deny by default, a single policy table, ownership checks, separation of duties, a test for every matrix row | Bugs in our own code, which we try to limit by keeping the attack surface small and testing it |
-| T15 | Cross-site scripting through message text: a sender puts `<script>` in a compliment so it runs in the recipient's or a moderator's browser | Key theft, actions taken as the victim | Jinja autoescaping on every template (we never use `\|safe`); a strict Content-Security-Policy with no inline scripts; the server serves no HTML | A mistake in a template, which a dedicated test checks for |
+| T14 | Privilege escalation or insecure direct object references | All | Deny by default, a single policy table, ownership checks, separation of duties, a test for every matrix row | Bugs in my own code, which I try to limit by keeping the attack surface small and testing it |
+| T15 | Cross-site scripting through message text: a sender puts `<script>` in a compliment so it runs in the recipient's or a moderator's browser | Key theft, actions taken as the victim | Jinja autoescaping on every template (I never use `\|safe`); a strict Content-Security-Policy with no inline scripts; the server serves no HTML | A mistake in a template, which a dedicated test checks for |
 | T16 | Other websites attacking the local UI (CSRF, DNS rebinding against 127.0.0.1) | A malicious page makes the user send, flag, or approve something | The UI binds to 127.0.0.1 only; every form carries a per-session CSRF token; the Host header must match 127.0.0.1 and the port; all state changes use POST; the private key is unlocked only after the user enters their password | A compromised local machine, which is out of scope |
 
 ---
 
 ## 6. Cryptographic Design
 
-All the primitives come from Python's `cryptography` library. The one piece we write
-ourselves is the blinding arithmetic for blind RSA, which is a few lines of modular math
+All the primitives come from Python's `cryptography` library. The one piece I write
+myself is the blinding arithmetic for blind RSA, which is a few lines of modular math
 with Python's built-in `pow`. Blind RSA doesn't have a high-level API, so Section 6.2
-covers the pitfalls we're guarding against.
+covers the pitfalls I'm guarding against.
 
 ### 6.1 Keys
 
@@ -360,7 +345,13 @@ because the blinding factor hides `m` completely.
 Step 9 lets the client confirm the server actually signed honestly, rather than returning
 something that would fail later.
 
-Pitfalls we're handling:
+I treat blind signatures as part of the core system rather than an extra, even though the
+spec lists them as a bonus item. They're how the design actually meets the requirement
+that tokens be unlinkable to identities. A plain server-issued pseudonym would only be
+unlinkable if the server promised not to record who got which one, and I don't want
+anonymity to depend on trusting the server.
+
+Pitfalls I'm handling:
 - Plain RSA is multiplicative, so signatures on two values can be combined into a signature on their product. Using a full-domain hash prevents that.
 - Blind signing means the server signs whatever value it's given without seeing it. So the round key is used only for blind signing and never for anything else.
 - Each round gets a new key, which limits the damage if one leaks.
@@ -422,9 +413,9 @@ needed to make sense of it.
 
 The guiding idea is to keep enough to hold privileged users accountable while recording
 as little as possible about everyone else. A sender's actions can be traced to an
-anonymous token, never to a person. We don't log IP addresses or user agents. The issuance
+anonymous token, never to a person. I don't log IP addresses or user agents. The issuance
 table is the only place that links a user to a round, and it exists only to enforce the
-one-token-per-round quota, so we delete it as soon as the round ends.
+one-token-per-round quota, so I delete it as soon as the round ends.
 
 For tamper evidence, the log is built up in layers:
 
@@ -433,13 +424,13 @@ For tamper evidence, the log is built up in layers:
 - **Signed.** Each `entry_hash` is signed with the server's Ed25519 audit key.
 - **Verifiable.** A `verify-log` command recomputes the whole chain, checks every signature, and reports the first entry that doesn't check out.
 
-It's worth being clear about what this does and doesn't buy us. It makes tampering
+It's worth being clear about what this does and doesn't protect against. It makes tampering
 detectable, not impossible. Someone who has both the database and the audit signing key
 could rewrite the whole log and re-sign it. The practical defense is to periodically copy
 the latest `entry_hash` somewhere off the server, for example by having a moderator record
 it. Any rewrite of history before that point then becomes obvious. A Merkle tree would add
 efficient inclusion proofs on top of this, but it wouldn't close that gap, which is part of
-why we consider it optional.
+why I consider it optional.
 
 ---
 
@@ -464,71 +455,11 @@ adversarial tests (in pytest) that try to break the property it's supposed to en
 
 ---
 
-## 9. Scope and Implementation Plan
-
-### 9.1 What's in scope
-
-Everything required by the spec comes first. Beyond that:
-
-- **Blind-signature tokens** are part of the core system, even though the spec also lists them as a bonus item. They're how we actually meet the requirement that tokens be unlinkable to identities. A server-issued pseudonym would only be unlinkable if the server promised not to record who got which one, and we don't want anonymity to depend on trusting the server.
-- **The moderator dashboard** is a page in the web UI, with the same view available in the CLI: flagged queue, alerts, and recent log entries.
-- **The web UI** is deliberately simple. It's a set of plain server-rendered pages with no JavaScript framework, built on the same client library as the CLI. It only shows pages for the roles a user actually has, but enforcement stays on the server.
-
-Things we're putting off until the core system works and its tests pass:
-
-- **Merkle tree log.** The hash chain and signatures already make the log tamper-resistant; a Merkle tree mainly makes it cheaper to prove a single entry is included (see Section 7).
-- **Public anonymized dashboard.** It would add a new public endpoint and publish aggregate metadata, which is more exposure for not much security benefit.
-- **Escrowed identity (Option C).** Discussed in Section 1.4.
-
-Once the core works, we plan to add one bonus feature. The likely candidates are:
-- polishing the role-adaptive web UI
-- additional intrusion detection rules
-- the Merkle tree
-
-### 9.2 Code layout
-
-Each file has one job, so each one can be read and explained on its own.
-
-```
-common/blind_rsa.py        blind, sign, unblind, verify (shared by client and server)
-common/envelope.py         canonical encoding of the message envelope (what gets signed)
-server/db.py               schema, including UNIQUE constraints and log triggers
-server/rbac.py             ROLE_PERMISSIONS, require_permission, separation-of-duties check
-server/auth.py             scrypt password hashing and sessions
-server/audit.py            append, hash chain, sign, verify
-server/routes_*.py         one file per area: admin, sender, recipient, moderator
-client/keys.py             key generation, encrypted key storage, fingerprint pinning
-client/crypto.py           encrypt, decrypt, flag reveal
-client/core.py             client actions (register, get token, send, inbox, flag), used by both interfaces
-client/cli.py              terminal interface
-client/web.py              local web UI, including CSRF, Host check, and CSP
-client/templates/          Jinja templates, autoescaped
-client/static/style.css    one small stylesheet
-tests/                     one test file per area in Section 8
-```
-
-The web UI aims for the look of a plain internal tool:
-- the system font, simple tables and forms, and a single accent color
-- no JavaScript required
-- every page shows the user's roles and the current round
-- when the server refuses something, the error page shows the reason (for example "403: requires `moderation:read`")
-
-### 9.3 Timeline
-
-| Week | Work |
-|---|---|
-| 1 | This design document |
-| 2 | Database, auth, RBAC, audit log (hash chain and signatures), registration and approval, blind token issuance; client library, CLI, and the first web pages (login, register, admin approval); tests for all of it |
-| 3 | Client key handling and pinning, hybrid encryption, anonymous sending, inbox; CLI and web pages for each; tests |
-| 4 | Flagging, moderator dashboard, freezing, alerts, `verify-log`, the full adversarial test suite, security report, sample logs, demo |
-
----
-
-## 10. Requirements Coverage
+## 9. Requirements Coverage
 
 This maps each required item from the project spec to where the design handles it.
 
-| Requirement | How we meet it | Section | Verified by |
+| Requirement | How I meet it | Section | Verified by |
 |---|---|---|---|
 | Four roles, clearly enforced | `ROLE_PERMISSIONS` and `@require_permission` | 2, 3, 4 | RBAC matrix tests |
 | Role-permission matrix | Section 3, mirrored in code | 3 | Generated matrix test |
@@ -557,7 +488,7 @@ This maps each required item from the project spec to where the design handles i
 | Admin manages registration, roles, public keys, and policy | `user:approve`, `role:assign`, `key:approve`, `round:manage`, `policy:set` | 3 | Role tests |
 | Final deliverables: repo and README, security report, RBAC matrix and threat model, sample audit log with analysis | `README.md` and the `docs/` folder | | |
 
-Optional items from the spec that we're not treating as core: a Merkle tree log, extra
+Optional items from the spec that I'm not treating as core: a Merkle tree log, extra
 intrusion detection rules, a public dashboard, and a demo video. Blind signatures are
 already part of the core design, and the web UI's role-based pages are a start on the
 role-adaptive front end.
