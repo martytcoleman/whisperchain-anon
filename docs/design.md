@@ -413,7 +413,7 @@ needed to make sense of it.
 
 The guiding idea is to keep enough to hold privileged users accountable while recording
 as little as possible about everyone else. A sender's actions can be traced to an
-anonymous token, never to a person. I don't log IP addresses or user agents. The issuance
+anonymous token, never to a person. I don't log IP addresses or user agents. The two events that come from anonymous senders, `token_issued` and `message_sent`, get their timestamps rounded down to the hour, so the log can't be used to match "Alice was online at 10:01" against "a message was sent at 10:01." The issuance
 table is the only place that links a user to a round, and it exists only to enforce the
 one-token-per-round quota, so I delete it as soon as the round ends.
 
