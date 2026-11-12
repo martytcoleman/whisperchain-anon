@@ -6,8 +6,9 @@ anything about who sent what. admins only manage accounts and settings.
 from flask import Blueprint, g, request
 
 from common.pubkey import fingerprint
+from server import rounds
 from server.context import db, error, log
-from server.db import transaction
+from server.db import DEFAULT_POLICY, transaction
 from server.rbac import check_role_change, require_permission
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -99,3 +100,35 @@ def set_roles(user_id):
         _set_roles(user_id, roles)
         log("role_assigned", role="admin", actor_id=g.user["id"], target=user_id, roles=roles)
     return {"id": user_id, "roles": roles}
+
+
+@bp.post("/rounds")
+@require_permission("round:manage")
+def start_round():
+    with transaction(db()):
+        new = rounds.start_round(db())
+        log("round_started", role="admin", actor_id=g.user["id"],
+            round=new["id"], epoch=new["epoch"], new_key=new["epoch"] == new["id"])
+    return {"round_id": new["id"], "epoch": new["epoch"]}
+
+
+@bp.get("/policy")
+@require_permission("policy:set")
+def get_policy():
+    return {row["name"]: int(row["value"]) for row in db().execute("SELECT * FROM policy")}
+
+
+@bp.post("/policy")
+@require_permission("policy:set")
+def set_policy():
+    data = request.get_json(silent=True) or {}
+    name, value = data.get("name"), data.get("value")
+    # only settings that already exist, and only whole numbers >= 1
+    if name not in DEFAULT_POLICY:
+        return error(400, f"unknown policy, options are: {', '.join(DEFAULT_POLICY)}")
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        return error(400, "value must be a whole number, at least 1")
+    with transaction(db()):
+        db().execute("UPDATE policy SET value = ? WHERE name = ?", (str(value), name))
+        log("policy_changed", role="admin", actor_id=g.user["id"], name=name, value=value)
+    return {name: value}

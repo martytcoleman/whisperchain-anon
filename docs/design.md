@@ -126,7 +126,9 @@ requirement exactly. In this mode, freezing a token means a few concrete things:
 Repeat abuse is still bounded, because nobody can get more than one token per round.
 
 The token lifetime is also an Admin policy setting, `token_validity_rounds`, defaulting to
-1. Raising it switches to Option B. That costs one integer in the code and lets me show the
+1. Raising it switches to Option B. In the code, rounds are grouped into epochs that share one
+signing key, and a token is good for its whole epoch. With the default of 1, every round is its
+own epoch. This lets me show the
 tradeoff in action. I don't claim that Option B gives the same anonymity as Option A; it
 deliberately gives some up in exchange for longer-lasting freezes. Option C would satisfy
 both goals, but it brings in a lot more cryptography than I can implement
@@ -246,7 +248,7 @@ Quotas are enforced with database UNIQUE constraints inside a single transaction
 never check a quota first and insert afterward, because two concurrent requests could both
 pass the check before either one inserts.
 
-- **Token issuance:** the server inserts `(user_id, round)` into the issuance table before it signs anything. A second concurrent request fails on the constraint.
+- **Token issuance:** the server inserts `(user_id, epoch)` into the issuance table before it signs anything. A second concurrent request fails on the constraint.
 - **Sending:** the token's public key goes into `spent_tokens` in the same transaction that stores the message, so one token yields exactly one message.
 - **Freezes:** the freeze check and the spend happen together inside a `BEGIN IMMEDIATE` transaction.
 
@@ -282,7 +284,7 @@ claiming more than the design delivers.
 | # | Threat | Impact | Defense | Residual risk |
 |---|---|---|---|---|
 | T1 | Compromised Admin or server tries to read messages | Confidentiality | End-to-end encryption with private keys only on clients; no endpoint returns content to an Admin | None for existing messages. Future messages are at risk only if combined with T3. |
-| T2 | Compromised Admin or server tries to identify senders | Anonymity | Blind signatures mean issuance can't be matched to use; no user id is stored on messages or sender-side log entries; the issuance table is deleted when each round ends | Timing and traffic analysis (T9) |
+| T2 | Compromised Admin or server tries to identify senders | Anonymity | Blind signatures mean issuance can't be matched to use; no user id is stored on messages or sender-side log entries; the issuance table is deleted when each epoch ends | Timing and traffic analysis (T9) |
 | T3 | Public key substitution: the Admin approves an attacker's key in place of Bob's | Future confidentiality | Clients pin each recipient's key fingerprint the first time they use it and refuse to send if it changes; key approvals are signed audit events; users can compare fingerprints in person | This is trust on first use. If the key is swapped before the first contact, pinning doesn't catch it; only an out-of-band fingerprint check does. I'm assuming the directory is honest at first contact. |
 | T4 | Compromised Admin creates fake Sender accounts or mints tokens (Sybil attack) | Spam, quota bypass | Registrations and role grants are signed audit events; an alert fires if tokens issued in a round exceed the number of active Senders | Anyone with the round signing key can mint tokens directly. With a single issuer there's no way to fully prevent that. |
 | T5 | A Sender shares their token with someone else | Accountability | Sharing doesn't create extra messages, since each token is good for one; a freeze applies no matter who used the token | This is inherent to bearer credentials. I can limit the damage, not prevent sharing. |
@@ -313,7 +315,7 @@ covers the pitfalls I'm guarding against.
 |---|---|---|---|
 | User encryption key | RSA-3072 with OAEP-SHA256 | Client only, encrypted with the user's password | Receiving messages |
 | Token key | Ed25519, new for every token | Client only | Signing the one message the token sends |
-| Round signing key | RSA-3072, new each round | Server | Blind-signing tokens |
+| Epoch signing key | RSA-3072, new each epoch (every round by default) | Server | Blind-signing tokens |
 | Audit log key | Ed25519 | Server, in a separate key file | Signing log entries |
 
 ### 6.2 Token issuance (Chaum-style blind RSA)
@@ -322,11 +324,11 @@ covers the pitfalls I'm guarding against.
 Sender's client                                     Server (round key: n, e, d)
 
 1. make a new token key pair (sk_t, pk_t)
-2. m = FDH(round_id || pk_t)
+2. m = FDH(epoch || pk_t)
 3. pick random r, compute blinded = m * r^e mod n
 4. POST /tokens (logged in, sends only blinded) -->
                                                     5. check the user has the Sender role
-                                                    6. INSERT issuance(user_id, round), UNIQUE
+                                                    6. INSERT issuance(user_id, epoch), UNIQUE
                                                     7. s' = blinded^d mod n
                               <-- s'
 8. s = s' * r^-1 mod n, so s = m^d
@@ -415,7 +417,7 @@ The guiding idea is to keep enough to hold privileged users accountable while re
 as little as possible about everyone else. A sender's actions can be traced to an
 anonymous token, never to a person. I don't log IP addresses or user agents. The two events that come from anonymous senders, `token_issued` and `message_sent`, get their timestamps rounded down to the hour, so the log can't be used to match "Alice was online at 10:01" against "a message was sent at 10:01." The issuance
 table is the only place that links a user to a round, and it exists only to enforce the
-one-token-per-round quota, so I delete it as soon as the round ends.
+one-token-per-round quota, so I delete it as soon as the epoch ends (every round, by default).
 
 For tamper evidence, the log is built up in layers:
 
@@ -450,7 +452,7 @@ adversarial tests (in pytest) that try to break the property it's supposed to en
 | Fraudulent flagging | Flagging with the wrong key is rejected; flagging with a valid key from a different message is rejected |
 | Freezing | Sends from a frozen token are rejected and raise an alert; the frozen token's message is withdrawn from the inbox |
 | Audit log | Modifying, deleting, or reordering an entry is caught by `verify-log`, which reports the exact entry; SQL UPDATE and DELETE are blocked by the triggers; every security-relevant action produces exactly one log entry |
-| Metadata leakage | After a send, scan every log entry and table for the sender's user id or an IP address and find none; the issuance table is empty once the round ends |
+| Metadata leakage | After a send, scan every log entry and table for the sender's user id or an IP address and find none; the issuance table is empty once the epoch ends |
 | Web UI | A message containing `<script>` renders escaped in both the inbox and the moderator queue; a POST without a CSRF token gets 403; a foreign Host header gets 403; pages for roles the user doesn't have are hidden, and the server still rejects the underlying calls |
 
 ---

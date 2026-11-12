@@ -38,14 +38,17 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at REAL NOT NULL
 );
 
--- every round gets its own rsa key for blind signing tokens. the private
--- key gets wiped when the round ends, the public key sticks around so
--- tokens can still be checked while they're valid
+-- rounds are grouped into epochs. every epoch gets its own rsa key for
+-- blind signing tokens, and a token is only good during the epoch it was
+-- signed in. with the default policy (token_validity_rounds = 1) every round
+-- is its own epoch, so every round gets a fresh key and fresh tokens.
+-- only the current round row keeps the private key, older rows get it wiped
 CREATE TABLE IF NOT EXISTS rounds (
     id              INTEGER PRIMARY KEY,
     started_at      TEXT NOT NULL,
+    epoch           INTEGER NOT NULL,          -- id of the round that started this epoch
     public_key_pem  TEXT NOT NULL,
-    private_key_pem TEXT,                      -- null once the round is over
+    private_key_pem TEXT,                      -- null except on the current round
     is_current      INTEGER NOT NULL DEFAULT 0
 );
 
@@ -55,14 +58,14 @@ CREATE TABLE IF NOT EXISTS policy (
     value TEXT NOT NULL
 );
 
--- this is the only place a real user gets tied to a round. it's only here
--- to enforce one token per sender per round, and it gets cleared when the
--- round ends. no timestamp and no rowid on purpose, so you can't line the
--- row order up with the audit log
+-- this is the only place a real user gets tied to anything token related.
+-- it's only here to enforce one token per sender per epoch, and it gets
+-- cleared as soon as the epoch ends. no timestamp and no rowid on purpose,
+-- so you can't line the row order up with the audit log
 CREATE TABLE IF NOT EXISTS issuance (
-    user_id  INTEGER NOT NULL,
-    round_id INTEGER NOT NULL,
-    PRIMARY KEY (user_id, round_id)
+    user_id INTEGER NOT NULL,
+    epoch   INTEGER NOT NULL,
+    PRIMARY KEY (user_id, epoch)
 ) WITHOUT ROWID;
 
 -- a token gets one message per round. with the default lifetime of one
