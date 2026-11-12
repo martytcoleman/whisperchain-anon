@@ -441,7 +441,7 @@ adversarial tests (in pytest) that try to break the property it's supposed to en
 
 | Area | Tests |
 |---|---|
-| RBAC and privilege escalation | Every role tried against every permission, with the expected results generated from `ROLE_PERMISSIONS` so the matrix and the code can't drift apart; missing or expired sessions get 401; an Admin granting themselves Moderator is refused; a Recipient reading or flagging someone else's message id gets 403 |
+| RBAC and privilege escalation | Every role tried against every permission, with the expected results copied by hand from the matrix in Section 3, so the matrix and the code can't drift apart; missing or expired sessions get 401; an Admin granting themselves Moderator is refused; a Recipient reading or flagging someone else's message id gets 403 |
 | Compromised Admin | An Admin session calling inbox, moderation, and message endpoints gets 403; a dump of the database contains no plaintext and no sender ids (the test searches the database file for the plaintext) |
 | Token forgery, reuse, replay | A random signature is rejected; a token from round 1 is rejected in round 2; sending twice with the same token fails the second time; tampering with the message signature is rejected; a Recipient-only user calling `/tokens` gets 403; a second token request in the same round is rejected |
 | Race conditions | 20 threads sending with the same token at once: exactly one succeeds; 20 concurrent token requests from one user: exactly one succeeds |
