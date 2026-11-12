@@ -32,6 +32,7 @@ ROLE_PERMISSIONS = {
     "moderator": {
         "directory:read",
         "moderation:read",
+        "flag:resolve",
         "token:freeze",
         "audit:read",
         "alerts:read",

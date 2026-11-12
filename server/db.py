@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS flags (
     token_id   TEXT NOT NULL,
     plaintext  TEXT NOT NULL,
     reason     TEXT NOT NULL,
-    status     TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved'))
+    status     TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'dismissed', 'frozen'))
 );
 
 CREATE TABLE IF NOT EXISTS alerts (

@@ -17,6 +17,7 @@ EXPECTED = {
     "inbox:read":      {"recipient"},
     "flag:create":     {"recipient"},
     "moderation:read": {"moderator"},
+    "flag:resolve":    {"moderator"},
     "token:freeze":    {"moderator"},
     "audit:read":      {"moderator", "admin"},
     "alerts:read":     {"moderator", "admin"},

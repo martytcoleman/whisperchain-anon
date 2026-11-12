@@ -26,10 +26,11 @@ from server.db import transaction
 
 GENESIS_HASH = "0" * 64   # the "previous hash" for the very first entry
 
-# events that come from anonymous senders. their timestamps get rounded down
-# to the hour so the log can't be used to line up "alice was online at 10:01"
-# with "a message was sent at 10:01"
-COARSE_TIME_ACTIONS = {"token_issued", "message_sent"}
+# events that come from anonymous senders (or alerts they cause). their
+# timestamps get rounded down to the hour so the log can't be used to line up
+# "alice was online at 10:01" with "a message was sent at 10:01"
+COARSE_TIME_ACTIONS = {"token_issued", "message_sent", "invalid_token",
+                       "frozen_token_used", "alert_raised"}
 
 
 def load_or_create_key(path):

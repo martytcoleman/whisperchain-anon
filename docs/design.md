@@ -123,6 +123,9 @@ requirement exactly. In this mode, freezing a token means a few concrete things:
 - any further attempt to use it is rejected and raises an alert
 - the message it sent is withdrawn from the recipient's inbox
 
+Unfreezing is the exact opposite, for when a freeze was a mistake: the token works again
+and its message goes back into the inbox.
+
 Repeat abuse is still bounded, because nobody can get more than one token per round.
 
 The token lifetime is also an Admin policy setting, `token_validity_rounds`, defaulting to
@@ -185,6 +188,7 @@ test. Denied requests return 403 and are recorded in the audit log as `access_de
 | (client-side) | Decrypt a message; the server has no keys to do this | No | Own only | No | No | No |
 | `flag:create` | Flag a message in your own inbox | No | Yes | No | No | No |
 | `moderation:read` | View the flagged queue and alerts (moderator dashboard) | No | No | Yes | No | No |
+| `flag:resolve` | Dismiss a flag after reviewing it | No | No | Yes | No | No |
 | `token:freeze` | Freeze or unfreeze a token | No | No | Yes | No | No |
 | `audit:read` | Read and verify the audit log | No | No | Yes | Yes | No |
 | `alerts:read` | View alerts | No | No | Yes | Yes | No |
@@ -286,10 +290,10 @@ claiming more than the design delivers.
 | T1 | Compromised Admin or server tries to read messages | Confidentiality | End-to-end encryption with private keys only on clients; no endpoint returns content to an Admin | None for existing messages. Future messages are at risk only if combined with T3. |
 | T2 | Compromised Admin or server tries to identify senders | Anonymity | Blind signatures mean issuance can't be matched to use; no user id is stored on messages or sender-side log entries; the issuance table is deleted when each epoch ends | Timing and traffic analysis (T9) |
 | T3 | Public key substitution: the Admin approves an attacker's key in place of Bob's | Future confidentiality | Clients pin each recipient's key fingerprint the first time they use it and refuse to send if it changes; key approvals are signed audit events; users can compare fingerprints in person | This is trust on first use. If the key is swapped before the first contact, pinning doesn't catch it; only an out-of-band fingerprint check does. I'm assuming the directory is honest at first contact. |
-| T4 | Compromised Admin creates fake Sender accounts or mints tokens (Sybil attack) | Spam, quota bypass | Registrations and role grants are signed audit events; an alert fires if tokens issued in a round exceed the number of active Senders | Anyone with the round signing key can mint tokens directly. With a single issuer there's no way to fully prevent that. |
+| T4 | Compromised Admin creates fake Sender accounts or mints tokens (Sybil attack) | Spam, quota bypass | Registrations and role grants are signed audit events; an alert fires if more distinct tokens are used in an epoch than the server actually issued, which is what minting with a leaked key looks like | Anyone with the round signing key can mint tokens directly. With a single issuer there's no way to fully prevent that. |
 | T5 | A Sender shares their token with someone else | Accountability | Sharing doesn't create extra messages, since each token is good for one; a freeze applies no matter who used the token | This is inherent to bearer credentials. I can limit the damage, not prevent sharing. |
 | T6 | Token forgery, reuse, or replay | Quota bypass | RSA-3072 with a full-domain hash; a UNIQUE `spent_tokens` table; the round id is part of what's signed, so old tokens don't validate; the message signature covers the round and recipient | Nothing practical without the signing key (see T4) |
-| T7 | Flooding or denial of service | Availability | One token and one message per round, request size limits, login rate limiting, an alert on repeated invalid tokens | Bounded by the number of Senders. Network-level DoS is out of scope. |
+| T7 | Flooding or denial of service | Availability | One token and one message per round, request size limits, login rate limiting, an alert after 5 invalid tokens in a round | Bounded by the number of Senders. Network-level DoS is out of scope. |
 | T8 | Repudiation ("I didn't send that" or "the server made that up") | Accountability | Each message is signed by a token key the server blind-certified, so it provably came from a valid token holder and can't be forged under that token without its private key. Privileged actions are logged with the actor's id and signed. Flags are checked against the sender's commitment. | Nonrepudiation here attaches to the anonymous token, not to a person, and that's intentional. The server's own log signatures only prove that the server recorded something, and are only as trustworthy as the server's key (T12). |
 | T9 | Metadata and traffic analysis | Anonymity, privacy | Encryption protects contents, not metadata; the server still knows the recipient, the round, and when a request arrived. To reduce correlation, tokens are fetched separately from sending (e.g. at the start of the round), the client can add a random delay before sending, and the server doesn't log IP addresses or exact send times. | Someone watching live server traffic can still notice "Alice logged in, and an anonymous send showed up seconds later," especially with only a handful of users. Defeating that properly needs something like Tor or a mix network, which is out of scope. |
 | T10 | Fraudulent flagging | Unfair moderation | Verifiable reveal (Section 6.4); alerts never freeze a token automatically, a moderator decides | Many people flagging harmless content is a policy problem, not a cryptographic one |
@@ -409,13 +413,14 @@ needed to make sense of it.
 | `message_sent` | Round, token id (a hash of `pk_t`) | No, and the server doesn't know it anyway |
 | `message_delivered` | Round, number of messages | No |
 | `message_flagged` | Round, token id | No |
-| `token_frozen`, `token_unfrozen` | Token id, reason | Yes, the acting Moderator |
+| `token_frozen`, `token_unfrozen`, `flag_dismissed` | Token id, reason | Yes, the acting Moderator |
+| `invalid_token`, `frozen_token_used` | Round or token id, reason | No |
 | `access_denied` | Role, attempted permission | Role only |
 | `alert_raised` | Rule, token id or round | No |
 
 The guiding idea is to keep enough to hold privileged users accountable while recording
 as little as possible about everyone else. A sender's actions can be traced to an
-anonymous token, never to a person. I don't log IP addresses or user agents. The two events that come from anonymous senders, `token_issued` and `message_sent`, get their timestamps rounded down to the hour, so the log can't be used to match "Alice was online at 10:01" against "a message was sent at 10:01." The issuance
+anonymous token, never to a person. I don't log IP addresses or user agents. Events that come from anonymous senders (`token_issued`, `message_sent`, `invalid_token`, `frozen_token_used`) and the alerts they can trigger get their timestamps rounded down to the hour, so the log can't be used to match "Alice was online at 10:01" against "a message was sent at 10:01." The issuance
 table is the only place that links a user to a round, and it exists only to enforce the
 one-token-per-round quota, so I delete it as soon as the epoch ends (every round, by default).
 

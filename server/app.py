@@ -3,7 +3,8 @@ import os
 
 from flask import Flask, current_app, request
 
-from server import audit, routes_admin, routes_auth, routes_messages, routes_sender
+from server import (audit, routes_admin, routes_auth, routes_messages, routes_moderation,
+                    routes_sender)
 from server.context import close_db, error
 from server.db import connect, init_db
 
@@ -26,6 +27,7 @@ def create_app(data_dir):
     app.register_blueprint(routes_admin.bp)
     app.register_blueprint(routes_sender.bp)
     app.register_blueprint(routes_messages.bp)
+    app.register_blueprint(routes_moderation.bp)
     app.teardown_appcontext(close_db)
 
     @app.before_request

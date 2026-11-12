@@ -1,13 +1,13 @@
-"""the key directory, anonymous sending, and the recipient inbox."""
+"""the key directory, anonymous sending, the recipient inbox, and flagging."""
 import json
 import sqlite3
 
 from flask import Blueprint, g, request
 
 from common import blind_rsa
-from common.envelope import ENVELOPE_FIELDS, b64d, token_id, verify_signature
+from common.envelope import ENVELOPE_FIELDS, b64d, open_with_key, token_id, verify_signature
 from common.pubkey import fingerprint
-from server import rounds
+from server import alerts, rounds
 from server.context import db, error, log
 from server.db import transaction
 from server.rbac import public, require_permission
@@ -15,6 +15,7 @@ from server.rbac import public, require_permission
 bp = Blueprint("messages", __name__)
 
 MAX_CIPHERTEXT_B64 = 8000   # a 1000 character message is way under this
+MAX_FLAG_REASON = 500
 
 
 @bp.get("/directory")
@@ -83,12 +84,16 @@ def send_message():
         n, e = rounds.public_numbers(current)
         message = blind_rsa.token_message(token["epoch"], token_public)
         if token["epoch"] != current["epoch"] or not blind_rsa.verify(message, token_signature, n, e):
-            log("invalid_token", role="anonymous", reason="token signature invalid or expired")
+            log("invalid_token", role="anonymous", round=current["id"],
+                reason="token signature invalid or expired")
+            alerts.check_invalid_tokens(current["id"])
             return error(403, "invalid or expired token")
 
         # 2. was this exact envelope signed by that token's key?
         if not verify_signature(envelope, token_public, signature):
-            log("invalid_token", role="anonymous", reason="message signature invalid")
+            log("invalid_token", role="anonymous", round=current["id"],
+                reason="message signature invalid")
+            alerts.check_invalid_tokens(current["id"])
             return error(403, "message signature doesn't match the token")
 
         # 3. is it for this round, and to someone who can actually receive?
@@ -104,6 +109,7 @@ def send_message():
         # 4. has a moderator frozen this token?
         if db().execute("SELECT 1 FROM frozen_tokens WHERE token_id = ?", (tid,)).fetchone():
             log("frozen_token_used", role="anonymous", token=tid)
+            alerts.raise_alert("frozen_token_used", token=tid)
             return error(403, "this token has been frozen")
 
         # 5. one message per token per round. the primary key on spent_tokens
@@ -123,6 +129,7 @@ def send_message():
             (recipient["id"], current["id"], tid, json.dumps(envelope),
              json.dumps(token), signature))
         log("message_sent", role="sender", round=current["id"], token=tid)
+        alerts.check_unissued_tokens(current["epoch"])
     return {"ok": True}, 201
 
 
@@ -143,3 +150,47 @@ def inbox():
         "token_public_key": json.loads(r["token"])["public_key"],
         "signature": r["signature"],
     } for r in rows]}
+
+
+@bp.post("/inbox/<int:message_id>/flag")
+@require_permission("flag:create")
+def flag_message(message_id):
+    # flagging = handing the server this one message's aes key, so the
+    # moderators can read it. the server checks the key against the
+    # commitment the sender signed, so a recipient can't make up nasty text
+    # and pin it on someone's token
+    data = request.get_json(silent=True) or {}
+    reason = str(data.get("reason", "")).strip()
+    if not 1 <= len(reason) <= MAX_FLAG_REASON:
+        return error(400, f"give a reason (1-{MAX_FLAG_REASON} characters)")
+    try:
+        message_key = b64d(str(data.get("key", "")))
+    except ValueError:
+        return error(400, "key must be base64")
+
+    with transaction(db()):
+        msg = db().execute("SELECT * FROM messages WHERE id = ?", (message_id,)).fetchone()
+        if msg is None:
+            return error(404, "no such message")
+        # same object-level check as the inbox: only your own messages
+        if msg["recipient_id"] != g.user["id"]:
+            return error(403, "you can only flag messages sent to you")
+        if msg["withdrawn"]:
+            return error(409, "this message was already withdrawn")
+
+        try:
+            plaintext = open_with_key(json.loads(msg["envelope"]), message_key)
+        except ValueError as e:
+            log("flag_rejected", role="recipient", reason=str(e))
+            return error(400, f"flag rejected: {e}")
+
+        try:
+            db().execute(
+                "INSERT INTO flags (message_id, round_id, token_id, plaintext, reason) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (message_id, msg["round_id"], msg["token_id"], plaintext, reason))
+        except sqlite3.IntegrityError:
+            return error(409, "you already flagged this message")
+        log("message_flagged", role="recipient", round=msg["round_id"], token=msg["token_id"])
+        alerts.check_flag_threshold(msg["round_id"])
+    return {"ok": True}, 201

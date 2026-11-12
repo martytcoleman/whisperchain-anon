@@ -5,7 +5,7 @@ import sqlite3
 from flask import Blueprint, g, request
 
 from common.pubkey import fingerprint, load_rsa_public_key
-from server import auth
+from server import alerts, auth
 from server.context import db, error, log
 from server.db import transaction
 from server.rbac import permissions_for, public, require_login
@@ -57,6 +57,7 @@ def login():
     except auth.LoginFailed as e:
         if e.locked:
             log("account_locked", target=username)
+            alerts.raise_alert("account_locked", target=username)
         return error(401, str(e))
     token = auth.create_session(db(), user["id"])
     return {"session": token, "user": auth.user_for_session(db(), token)}
