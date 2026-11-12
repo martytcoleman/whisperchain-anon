@@ -29,7 +29,7 @@ def request_token(client, session):
         return resp, None
     sig = blind_rsa.unblind(int(resp.json["blind_signature"], 16), r, n)
     return resp, {"epoch": rnd["epoch"], "public_key": pub, "signature": sig, "n": n, "e": e,
-                  "blinded": blinded}
+                  "blinded": blinded, "private_key": token_key}
 
 
 def token_is_valid(token):

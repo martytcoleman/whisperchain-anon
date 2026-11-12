@@ -11,10 +11,14 @@ PASSWORD = "correct horse battery"
 
 
 @pytest.fixture(scope="session")
-def public_key_pem():
+def user_private_key():
     # making a 3072-bit key takes a moment, so all test users share one
-    key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
-    return key.public_key().public_bytes(
+    return rsa.generate_private_key(public_exponent=65537, key_size=3072)
+
+
+@pytest.fixture(scope="session")
+def public_key_pem(user_private_key):
+    return user_private_key.public_key().public_bytes(
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
 
 

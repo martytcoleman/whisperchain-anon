@@ -102,6 +102,24 @@ def set_roles(user_id):
     return {"id": user_id, "roles": roles}
 
 
+@bp.post("/users/<int:user_id>/key/approve")
+@require_permission("key:approve")
+def approve_key(user_id):
+    with transaction(db()):
+        user = db().execute("SELECT pending_public_key FROM users WHERE id = ?", (user_id,)).fetchone()
+        if user is None:
+            return error(404, "no such user")
+        if user["pending_public_key"] is None:
+            return error(409, "no key change waiting for this user")
+        db().execute("UPDATE users SET public_key = pending_public_key, pending_public_key = NULL "
+                     "WHERE id = ?", (user_id,))
+        # the fingerprint goes in the signed log, so a sneaky key swap by an
+        # admin leaves a permanent record
+        log("key_approved", role="admin", actor_id=g.user["id"], target=user_id,
+            key_fingerprint=fingerprint(user["pending_public_key"]))
+    return {"id": user_id, "key_fingerprint": fingerprint(user["pending_public_key"])}
+
+
 @bp.post("/rounds")
 @require_permission("round:manage")
 def start_round():

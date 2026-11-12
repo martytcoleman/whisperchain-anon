@@ -75,3 +75,20 @@ def me():
     # the client uses this to decide which pages/commands to show. that's just
     # for convenience, the server still checks every request on its own
     return {**g.user, "permissions": sorted(permissions_for(g.user["roles"]))}
+
+
+@bp.post("/me/key")
+@require_login
+def request_key_change():
+    # a new key doesn't take effect until an admin approves it. that way a
+    # stolen session alone can't quietly swap your key for the attacker's
+    public_key = str((request.get_json(silent=True) or {}).get("public_key", ""))
+    try:
+        load_rsa_public_key(public_key)
+    except ValueError as e:
+        return error(400, str(e))
+    with transaction(db()):
+        db().execute("UPDATE users SET pending_public_key = ? WHERE id = ?",
+                     (public_key, g.user["id"]))
+        log("key_change_requested", target=g.user["id"], key_fingerprint=fingerprint(public_key))
+    return {"status": "pending admin approval", "fingerprint": fingerprint(public_key)}
