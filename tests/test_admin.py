@@ -26,7 +26,7 @@ def test_reject(client, users):
     assert r.status_code == 401 and "rejected" in r.json["error"]
 
 
-def test_separation_of_duties_on_approve_and_role_change(client, users):
+def test_separation_of_duties_on_approve_and_role_change(client, users, db):
     admin = users.admin()
     alice = users.register("alice")
     r = client.post(f"/admin/users/{alice}/approve", json={"roles": ["admin", "moderator"]},
@@ -38,6 +38,10 @@ def test_separation_of_duties_on_approve_and_role_change(client, users):
                     headers=auth_header(admin))
     assert r.status_code == 400
 
+    # both refusals are in the log, with the admin who tried
+    rows = db.execute("SELECT * FROM audit_log WHERE action = 'role_change_refused'").fetchall()
+    assert len(rows) == 2 and all(r["actor_id"] is not None for r in rows)
+
 
 def test_admin_cant_change_own_roles(client, users, db):
     admin = users.admin()
@@ -45,6 +49,7 @@ def test_admin_cant_change_own_roles(client, users, db):
     r = client.post(f"/admin/users/{admin_id}/roles", json={"roles": ["admin", "sender"]},
                     headers=auth_header(admin))
     assert r.status_code == 400
+    assert db.execute("SELECT COUNT(*) FROM audit_log WHERE action = 'role_change_refused'").fetchone()[0] == 1
 
 
 def test_unknown_role_rejected(client, users):

@@ -27,6 +27,14 @@ def _set_roles(user_id, roles):
         db().execute("INSERT INTO user_roles (user_id, role) VALUES (?, ?)", (user_id, role))
 
 
+def _refuse_role_change(user_id, roles, problem):
+    # an admin trying to break separation of duties is exactly the kind of
+    # thing the log is for, so the refusal gets logged with who tried it
+    log("role_change_refused", role="admin", actor_id=g.user["id"],
+        target=user_id, roles=roles, reason=problem)
+    return error(400, problem)
+
+
 @bp.get("/users")
 @require_permission("user:approve")
 def list_users():
@@ -53,7 +61,7 @@ def approve_user(user_id):
         return error(400, "give the user at least one role")
     problem = check_role_change(g.user["id"], user_id, roles)
     if problem:
-        return error(400, problem)
+        return _refuse_role_change(user_id, roles, problem)
 
     with transaction(db()):
         user = db().execute("SELECT status FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -89,7 +97,7 @@ def set_roles(user_id):
         return error(400, "give the user at least one role")
     problem = check_role_change(g.user["id"], user_id, roles)
     if problem:
-        return error(400, problem)
+        return _refuse_role_change(user_id, roles, problem)
 
     with transaction(db()):
         user = db().execute("SELECT status FROM users WHERE id = ?", (user_id,)).fetchone()
