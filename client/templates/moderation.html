@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Moderation - WhisperChain+{% endblock %}
+{% block content %}
+<h1>Flagged messages</h1>
+<p class="tabs">
+  {% for s in ("open", "dismissed", "frozen") %}
+  {% if s == status %}<strong>{{ s }}</strong>{% else %}<a href="{{ url_for('moderation', status=s) }}">{{ s }}</a>{% endif %}
+  {% endfor %}
+</p>
+{% if not flags %}<p>Nothing here.</p>{% endif %}
+{% for f in flags %}
+<section class="message">
+  <p class="meta">Flag #{{ f.id }} &middot; round {{ f.round }} &middot; {{ f.status }}{% if f.frozen %} &middot; token frozen{% endif %}</p>
+  <p class="pre">{{ f.plaintext }}</p>
+  <p><span class="muted">Reason:</span> {{ f.reason }}</p>
+  <p class="mono small">token {{ f.token_id }}</p>
+  <div class="row">
+    {% if f.status == "open" %}
+    <form method="post" action="{{ url_for('dismiss', flag_id=f.id) }}" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit">Dismiss</button>
+    </form>
+    {% endif %}
+    <form method="post" action="{{ url_for('unfreeze' if f.frozen else 'freeze') }}" class="inline">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="token_id" value="{{ f.token_id }}">
+      <input name="reason" placeholder="reason" maxlength="500" required>
+      <button type="submit">{{ "Unfreeze token" if f.frozen else "Freeze token" }}</button>
+    </form>
+  </div>
+</section>
+{% endfor %}
+
+<h2>Alerts</h2>
+{% if not alerts %}<p>No alerts.</p>{% else %}
+<table>
+  <tr><th>Time (hour)</th><th>Rule</th><th>Detail</th></tr>
+  {% for a in alerts %}
+  <tr><td>{{ a.time }}</td><td>{{ a.rule }}</td><td class="mono small">{{ a.detail }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% endblock %}

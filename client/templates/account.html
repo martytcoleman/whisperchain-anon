@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Account - WhisperChain+{% endblock %}
+{% block content %}
+<h1>Account</h1>
+<table class="kv">
+  <tr><th>Username</th><td>{{ me.user.username }}</td></tr>
+  <tr><th>Roles</th><td>{{ me.user.roles|join(', ') }}</td></tr>
+</table>
+
+<h2>Recipient keys</h2>
+<p class="hint">Compare these with people in person if you want to be sure nobody swapped a key.
+  Your client remembers each one the first time you send to it and warns you if it changes.</p>
+<table>
+  <tr><th>User</th><th>Fingerprint</th></tr>
+  {% for r in directory %}
+  <tr><td>{{ r.username }}</td><td class="mono small">{{ r.fingerprint }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Change my key</h2>
+<form method="post" action="{{ url_for('new_key') }}" class="stack narrow">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Password (encrypts the new key) <input name="password" type="password" required></label>
+  <p class="hint">The new key is used once an admin approves it. Your old key is kept so old messages still open.</p>
+  <button type="submit">Make a new key</button>
+</form>
+{% endblock %}

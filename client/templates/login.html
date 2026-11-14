@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Log in - WhisperChain+{% endblock %}
+{% block content %}
+<h1>Log in</h1>
+<form method="post" class="stack narrow">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Username <input name="username" autocomplete="username" required></label>
+  <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+  <p class="hint">Your password also unlocks your private key on this machine. The key never leaves it.</p>
+  <button type="submit">Log in</button>
+</form>
+<p><a href="{{ url_for('register') }}">Register a new account</a></p>
+{% endblock %}

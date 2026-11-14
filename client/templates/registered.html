@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Registered</h1>
+<p>Your account is waiting for an admin to approve it.</p>
+<p>Your key fingerprint:</p>
+<p class="mono">{{ fingerprint }}</p>
+<p class="hint">People can compare this with what the directory shows for you to make sure nobody swapped your key.</p>
+<p><a href="{{ url_for('login') }}">Go to log in</a></p>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Send - WhisperChain+{% endblock %}
+{% block content %}
+<h1>Send a compliment</h1>
+<p>Token: <strong>{{ token }}</strong></p>
+{% if token == "no token for this round" %}
+<form method="post" action="{{ url_for('token') }}" class="inline">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button type="submit">Get token</button>
+</form>
+<p class="hint">Tokens are normally picked up when you log in. If you get one now, wait a while
+  before sending, so getting the token and sending don't happen right after each other.</p>
+{% endif %}
+
+{% if changed_key %}
+<div class="notice error">
+  <p class="pre">{{ changed_key.detail }}</p>
+  <form method="post" action="{{ url_for('trust') }}" class="inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="username" value="{{ changed_key.username }}">
+    <button type="submit">I checked with them, trust the new key</button>
+  </form>
+</div>
+{% endif %}
+
+<form method="post" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>To
+    <select name="recipient" required>
+      {% for r in recipients %}<option value="{{ r.username }}">{{ r.username }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Message <textarea name="message" rows="5" maxlength="1000" required></textarea></label>
+  <p class="hint">Encrypted on this machine for the recipient and sent without your login attached.
+    The server can't tell who sent it.</p>
+  <button type="submit">Send anonymously</button>
+</form>
+{% endblock %}

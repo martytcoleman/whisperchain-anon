@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Inbox - WhisperChain+{% endblock %}
+{% block content %}
+<h1>Inbox</h1>
+{% if not messages %}<p>No messages.</p>{% endif %}
+{% for m in messages %}
+<section class="message">
+  <p class="meta">#{{ m.id }} &middot; round {{ m.round }}</p>
+  {% if m.text is not none %}
+  <p class="pre">{{ m.text }}</p>
+  <details>
+    <summary>Flag this message</summary>
+    <form method="post" action="{{ url_for('flag', message_id=m.id) }}" class="stack">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label>Reason <input name="reason" maxlength="500" required></label>
+      <label class="check"><input type="checkbox" name="confirm" value="yes">
+        I understand the text of this message will be shown to moderators (they won't see who I am)</label>
+      <button type="submit">Flag</button>
+    </form>
+  </details>
+  {% else %}
+  <p class="muted">Can't decrypt: {{ m.error }}</p>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Audit log - WhisperChain+{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+<form method="post" action="{{ url_for('verify') }}" class="inline">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button type="submit">Verify chain and signatures</button>
+</form>
+<p class="hint">Verifying also saves the latest hash on this machine, and next time checks it's still in the log.
+  That's what catches the server rewriting history.</p>
+<table>
+  <tr><th>#</th><th>Time</th><th>Action</th><th>Role</th><th>By</th><th>Details</th></tr>
+  {% for e in entries %}
+  <tr>
+    <td>{{ e.id }}</td><td class="nowrap">{{ e.ts }}</td><td>{{ e.action }}</td>
+    <td>{{ e.role or "-" }}</td><td>{{ e.actor_id or "-" }}</td>
+    <td class="mono small">{{ e.details }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

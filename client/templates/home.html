@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Signed in as {{ me.user.username }}</h1>
+<table class="kv">
+  <tr><th>Roles</th><td>{{ me.user.roles|join(', ') }}</td></tr>
+  {% if token %}<tr><th>This round's token</th><td>{{ token }}</td></tr>{% endif %}
+</table>
+<p class="hint">Pages in the menu depend on your roles. The server checks every request on its own,
+  so hiding a page is only for convenience.</p>
+{% endblock %}
