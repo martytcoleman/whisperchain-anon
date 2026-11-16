@@ -158,3 +158,14 @@ def test_admin_and_moderator_pages(web, people):
     assert "1 message(s) withdrawn" in r.get_data(as_text=True)
     r = post(mod, "/audit/verify")
     assert "log OK" in r.get_data(as_text=True)
+
+
+def test_actions_go_back_to_their_own_page(web, people):
+    # the browser sends no Referer (we turn it off), so each action has to
+    # name the page it returns to instead of bouncing you to home
+    admin = web("admin")
+    r = admin.post("/admin/round", base_url=BASE, data={"csrf": csrf(admin)})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/admin")
+    mod = web("mod")
+    r = mod.post("/moderation/flags/999/dismiss", base_url=BASE, data={"csrf": csrf(mod)})
+    assert r.headers["Location"].endswith("/moderation")

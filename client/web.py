@@ -93,8 +93,11 @@ def create_web_app(server_url, home_dir, port):
             flash(success(result) if callable(success) else success, "ok")
         return result
 
-    def back():
-        return redirect(request.referrer or url_for("home"))
+    def back(page):
+        # go back to the page the action came from. we can't use the browser's
+        # Referer header for this because we tell it not to send one
+        # (Referrer-Policy: no-referrer), so each action names its page
+        return redirect(url_for(page))
 
     # --- account ---
 
@@ -157,7 +160,7 @@ def create_web_app(server_url, home_dir, port):
     def new_key():
         attempt(lambda: g.client.request_new_key(request.form.get("password", "")),
                 lambda fp: f"new key waiting for admin approval, fingerprint {fp}")
-        return back()
+        return back("account")
 
     @app.post("/trust")
     @login_required
@@ -165,7 +168,7 @@ def create_web_app(server_url, home_dir, port):
         username = request.form.get("username", "")
         attempt(lambda: g.client.trust_new_key(username),
                 lambda fp: f"now trusting {username}'s key {fp}")
-        return back()
+        return back("send")
 
     # --- sender ---
 
@@ -190,7 +193,7 @@ def create_web_app(server_url, home_dir, port):
     @login_required
     def token():
         attempt(g.client.refresh_token, lambda status: f"token: {status}")
-        return back()
+        return back("send")
 
     # --- recipient ---
 
@@ -226,21 +229,21 @@ def create_web_app(server_url, home_dir, port):
     @login_required
     def dismiss(flag_id):
         attempt(lambda: g.client.dismiss(flag_id), "flag dismissed")
-        return back()
+        return back("moderation")
 
     @app.post("/moderation/freeze")
     @login_required
     def freeze():
         attempt(lambda: g.client.freeze(request.form.get("token_id", ""), request.form.get("reason", "")),
                 lambda r: f"token frozen, {r['withdrawn']} message(s) withdrawn")
-        return back()
+        return back("moderation")
 
     @app.post("/moderation/unfreeze")
     @login_required
     def unfreeze():
         attempt(lambda: g.client.unfreeze(request.form.get("token_id", ""), request.form.get("reason", "")),
                 lambda r: f"token unfrozen, {r['restored']} message(s) restored")
-        return back()
+        return back("moderation")
 
     @app.get("/audit")
     @login_required
@@ -271,31 +274,31 @@ def create_web_app(server_url, home_dir, port):
     @login_required
     def approve(user_id):
         attempt(lambda: g.client.approve(user_id, request.form.getlist("roles")), "user approved")
-        return back()
+        return back("admin")
 
     @app.post("/admin/users/<int:user_id>/reject")
     @login_required
     def reject(user_id):
         attempt(lambda: g.client.reject(user_id), "user rejected")
-        return back()
+        return back("admin")
 
     @app.post("/admin/users/<int:user_id>/roles")
     @login_required
     def roles(user_id):
         attempt(lambda: g.client.set_roles(user_id, request.form.getlist("roles")), "roles updated")
-        return back()
+        return back("admin")
 
     @app.post("/admin/users/<int:user_id>/approve-key")
     @login_required
     def approve_key(user_id):
         attempt(lambda: g.client.approve_key(user_id), "key approved")
-        return back()
+        return back("admin")
 
     @app.post("/admin/round")
     @login_required
     def new_round():
         attempt(g.client.start_round, lambda r: f"round {r['round_id']} started")
-        return back()
+        return back("admin")
 
     @app.post("/admin/policy")
     @login_required
@@ -303,7 +306,7 @@ def create_web_app(server_url, home_dir, port):
         def change():
             return g.client.set_policy(request.form.get("name", ""), int(request.form.get("value", "")))
         attempt(change, "policy updated")
-        return back()
+        return back("admin")
 
     return app
 

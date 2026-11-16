@@ -21,13 +21,14 @@ import secrets
 TOKEN_PREFIX = b"whisperchain-token-v1|"
 
 
-def token_message(round_id, token_public_bytes):
-    """what actually gets signed: the round number + the token's ed25519 public key.
+def token_message(epoch, token_public_bytes):
+    """what actually gets signed: the epoch number + the token's ed25519 public key.
 
-    putting the round in here means a token signed in round 3 can't be passed
-    off as a round 4 token.
+    putting the epoch in here means a token signed in one epoch can't be
+    passed off as a token from a later one. (by default every round is its
+    own epoch, so in practice that's "round 3 tokens don't work in round 4".)
     """
-    return TOKEN_PREFIX + str(round_id).encode() + b"|" + token_public_bytes
+    return TOKEN_PREFIX + str(epoch).encode() + b"|" + token_public_bytes
 
 
 def fdh(message, n):
