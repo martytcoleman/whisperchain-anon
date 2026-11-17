@@ -109,6 +109,11 @@ def create_web_app(server_url, home_dir, port):
             flash(success(result) if callable(success) else success, "ok")
         return result
 
+    def refused():
+        # the server said no (or failed) for this page's main data. show just
+        # the error message, not an empty page that looks like it worked
+        return render_template("base.html")
+
     def back(page):
         # go back to the page the action came from. we can't use the browser's
         # Referer header for this because we tell it not to send one
@@ -233,7 +238,9 @@ def create_web_app(server_url, home_dir, port):
         # no role check here on purpose: the link is hidden for non-recipients,
         # and if they come here anyway the server says no
         messages = attempt(g.client.inbox)
-        return render_template("inbox.html", messages=messages or [])
+        if messages is None:
+            return refused()
+        return render_template("inbox.html", messages=messages)
 
     @app.post("/inbox/<int:message_id>/flag")
     @login_required
@@ -251,6 +258,8 @@ def create_web_app(server_url, home_dir, port):
     def moderation():
         status = request.args.get("status", "open")
         flags = attempt(lambda: g.client.flag_queue(status))
+        if flags is None:
+            return refused()
         alerts = attempt(g.client.alerts)
         return render_template("moderation.html", flags=flags or [], alerts=alerts or [],
                                status=status)
@@ -279,7 +288,9 @@ def create_web_app(server_url, home_dir, port):
     @login_required
     def audit():
         entries = attempt(lambda: g.client.audit(100))
-        return render_template("audit.html", entries=entries or [])
+        if entries is None:
+            return refused()
+        return render_template("audit.html", entries=entries)
 
     @app.post("/audit/verify")
     @login_required
@@ -297,8 +308,10 @@ def create_web_app(server_url, home_dir, port):
     @login_required
     def admin():
         users = attempt(g.client.users)
+        if users is None:
+            return refused()
         policy = attempt(g.client.policy)
-        return render_template("admin.html", users=users or [], policy=policy or {}, roles=ROLES)
+        return render_template("admin.html", users=users, policy=policy or {}, roles=ROLES)
 
     @app.post("/admin/users/<int:user_id>/approve")
     @login_required

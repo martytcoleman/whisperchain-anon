@@ -115,8 +115,12 @@ def test_menu_hides_pages_but_server_still_decides(web):
     # going to the page anyway: the real server refuses
     _, body = page(alice, "/inbox")
     assert "requires inbox:read" in body
+    # and only the error shows, not an empty inbox that looks like it worked
+    assert "No messages yet" not in body
     _, body = page(alice, "/admin")
     assert "requires user:approve" in body
+    _, body = page(alice, "/audit")
+    assert "requires audit:read" in body and "Verify chain" not in body
 
 
 def test_flag_needs_confirmation(web, people):
