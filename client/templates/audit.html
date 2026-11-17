@@ -4,7 +4,7 @@
 <h1>Audit log</h1>
 <form method="post" action="{{ url_for('verify') }}" class="inline">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <button type="submit">Verify chain and signatures</button>
+  <button type="submit" class="primary">Verify chain and signatures</button>
 </form>
 <p class="hint">Verifying also saves the latest hash on this machine, and next time checks it's still in the log.
   That's what catches the server rewriting history.</p>

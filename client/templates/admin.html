@@ -1,42 +1,67 @@
 {% extends "base.html" %}
 {% block title %}Admin - WhisperChain+{% endblock %}
 {% block content %}
-<h1>Users</h1>
+{% set pending = users|selectattr("status", "equalto", "pending")|list %}
+{% set others = users|rejectattr("status", "equalto", "pending")|list %}
+
+<h1>Waiting for approval</h1>
+{% if not pending %}
+<p class="muted">Nobody is waiting. New registrations show up here.</p>
+{% else %}
 <table>
-  <tr><th>ID</th><th>User</th><th>Status</th><th>Roles</th><th>Key</th><th></th></tr>
-  {% for u in users %}
+  <tr><th>User</th><th>Roles to give</th><th>Key</th><th></th></tr>
+  {% for u in pending %}
   <tr>
-    <td>{{ u.id }}</td>
+    <td>{{ u.username }}</td>
+    <td>
+      <form method="post" class="inline" action="{{ url_for('approve', user_id=u.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        {% for r in roles %}
+        <label class="check"><input type="checkbox" name="roles" value="{{ r }}"> {{ r }}</label>
+        {% endfor %}
+        <button type="submit" class="primary">Approve</button>
+      </form>
+    </td>
+    <td class="mono small">{{ u.key_fingerprint[:19] }}...</td>
+    <td>
+      <form method="post" action="{{ url_for('reject', user_id=u.id) }}" class="inline">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit" class="danger">Reject</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Users</h2>
+<table>
+  <tr><th>User</th><th>Status</th><th>Roles</th><th>Key</th></tr>
+  {% for u in others %}
+  <tr>
     <td>{{ u.username }}</td>
     <td>{{ u.status }}</td>
     <td>
       {% if u.id == me.user.id %}
       {{ u.roles|join(', ') }} <span class="hint">(you can't change your own roles)</span>
-      {% elif u.status in ("pending", "active") %}
-      <form method="post" class="inline"
-            action="{{ url_for('approve' if u.status == 'pending' else 'roles', user_id=u.id) }}">
+      {% elif u.status == "active" %}
+      <form method="post" class="inline" action="{{ url_for('roles', user_id=u.id) }}">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         {% for r in roles %}
         <label class="check"><input type="checkbox" name="roles" value="{{ r }}"
           {% if r in u.roles %}checked{% endif %}> {{ r }}</label>
         {% endfor %}
-        <button type="submit">{{ "Approve" if u.status == "pending" else "Save roles" }}</button>
+        <button type="submit">Save roles</button>
       </form>
+      {% else %}
+      <span class="muted">-</span>
       {% endif %}
     </td>
     <td class="mono small">{{ u.key_fingerprint[:19] }}...
       {% if u.has_pending_key %}
       <form method="post" action="{{ url_for('approve_key', user_id=u.id) }}" class="inline">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <button type="submit">Approve new key</button>
-      </form>
-      {% endif %}
-    </td>
-    <td>
-      {% if u.status == "pending" %}
-      <form method="post" action="{{ url_for('reject', user_id=u.id) }}" class="inline">
-        <input type="hidden" name="csrf" value="{{ csrf }}">
-        <button type="submit">Reject</button>
+        <button type="submit" class="primary">Approve new key</button>
       </form>
       {% endif %}
     </td>

@@ -7,7 +7,7 @@
   {% if s == status %}<strong>{{ s }}</strong>{% else %}<a href="{{ url_for('moderation', status=s) }}">{{ s }}</a>{% endif %}
   {% endfor %}
 </p>
-{% if not flags %}<p>Nothing here.</p>{% endif %}
+{% if not flags %}<p class="muted">{% if status == "open" %}No open flags. When a recipient flags a message, it shows up here.{% else %}No {{ status }} flags.{% endif %}</p>{% endif %}
 {% for f in flags %}
 <section class="message">
   <p class="meta">Flag #{{ f.id }} &middot; round {{ f.round }} &middot; {{ f.status }}{% if f.frozen %} &middot; token frozen{% endif %}</p>
@@ -25,14 +25,14 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="token_id" value="{{ f.token_id }}">
       <input name="reason" placeholder="reason" maxlength="500" required>
-      <button type="submit">{{ "Unfreeze token" if f.frozen else "Freeze token" }}</button>
+      <button type="submit" {% if not f.frozen %}class="danger"{% endif %}>{{ "Unfreeze token" if f.frozen else "Freeze token" }}</button>
     </form>
   </div>
 </section>
 {% endfor %}
 
 <h2>Alerts</h2>
-{% if not alerts %}<p>No alerts.</p>{% else %}
+{% if not alerts %}<p class="muted">No alerts. Lockouts, reused frozen tokens, and too many flags in a round show up here.</p>{% else %}
 <table>
   <tr><th>Time (hour)</th><th>Rule</th><th>Detail</th></tr>
   {% for a in alerts %}

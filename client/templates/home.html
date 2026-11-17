@@ -1,10 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Signed in as {{ me.user.username }}</h1>
-<table class="kv">
-  <tr><th>Roles</th><td>{{ me.user.roles|join(', ') }}</td></tr>
-  {% if token %}<tr><th>This round's token</th><td>{{ token }}</td></tr>{% endif %}
-</table>
-<p class="hint">Pages in the menu depend on your roles. The server checks every request on its own,
+<p class="muted">Roles: {{ me.user.roles|join(', ') }}</p>
+
+<ul class="next">
+  {% if can('token:request') %}
+  <li><a href="{{ url_for('send') }}">Send a compliment</a>
+    <span class="muted">{{ token_text }}</span></li>
+  {% endif %}
+  {% if can('inbox:read') %}
+  <li><a href="{{ url_for('inbox') }}">Read your inbox</a>
+    <span class="muted">Messages are decrypted here, on this machine.</span></li>
+  {% endif %}
+  {% if can('moderation:read') %}
+  <li><a href="{{ url_for('moderation') }}">Review flagged messages</a>
+    <span class="muted">{% if open_flags is none %}{% elif open_flags == 0 %}Nothing waiting.{% elif open_flags == 1 %}1 open flag.{% else %}{{ open_flags }} open flags.{% endif %}</span></li>
+  {% endif %}
+  {% if can('user:approve') %}
+  <li><a href="{{ url_for('admin') }}">Manage users and rounds</a>
+    <span class="muted">{% if pending_users is none %}{% elif pending_users == 0 %}Nobody waiting for approval.{% elif pending_users == 1 %}1 person waiting for approval.{% else %}{{ pending_users }} people waiting for approval.{% endif %}</span></li>
+  {% endif %}
+  {% if can('audit:read') %}
+  <li><a href="{{ url_for('audit') }}">Audit log</a>
+    <span class="muted">Check that nothing in the log has been changed.</span></li>
+  {% endif %}
+  <li><a href="{{ url_for('account') }}">Account</a>
+    <span class="muted">Your key, and other people's key fingerprints.</span></li>
+</ul>
+
+<p class="hint">The menu only shows pages for your roles. The server checks every request on its own,
   so hiding a page is only for convenience.</p>
 {% endblock %}

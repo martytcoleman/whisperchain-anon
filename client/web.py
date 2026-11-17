@@ -28,6 +28,22 @@ from client.keys import KeyChanged
 
 ROLES = ("sender", "recipient", "moderator", "admin")
 
+# token status from client/core.py, said the way a person would say it
+TOKEN_TEXT = {
+    "token ready": "You can send one message this round.",
+    "token already used this round": "You've sent your message for this round. "
+                                     "You can send again when a new round starts.",
+    "no token for this round": "You don't have a token for this round yet.",
+    "no round open yet": "No round is open yet, so nobody can send right now.",
+}
+
+# what refresh_token() did when you logged in (or clicked "get my token")
+PICKUP_TEXT = {
+    "new token": "Picked up your anonymous token for this round.",
+    "have token": "You already have your token for this round.",
+    "no round open yet": "No round is open yet, so there's no token to pick up.",
+}
+
 SECURITY_HEADERS = {
     # no scripts, no plugins, no framing, forms only post back to us
     "Content-Security-Policy": ("default-src 'none'; style-src 'self'; form-action 'self'; "
@@ -115,7 +131,7 @@ def create_web_app(server_url, home_dir, port):
             session.clear()   # new session id and csrf token after logging in
             session["sid"], session["csrf"] = sid, secrets.token_urlsafe(32)
             if token_status:
-                flash(f"token: {token_status}", "ok")
+                flash(PICKUP_TEXT.get(token_status, token_status), "ok")
             return redirect(url_for("home"))
         return render_template("login.html")
 
@@ -147,8 +163,21 @@ def create_web_app(server_url, home_dir, port):
     @app.get("/")
     @login_required
     def home():
-        token = g.client.token_status() if "token:request" in g.client.permissions else None
-        return render_template("home.html", token=token)
+        # a short "what can i do" list. no inbox count here on purpose:
+        # counting means fetching the inbox, and every fetch is logged as a
+        # delivery, so just opening the home page would spam the audit log
+        c = g.client
+        token = c.token_status() if "token:request" in c.permissions else None
+        open_flags = pending_users = None
+        try:
+            if "moderation:read" in c.permissions:
+                open_flags = len(c.flag_queue("open"))
+            if "user:approve" in c.permissions:
+                pending_users = sum(u["status"] == "pending" for u in c.users())
+        except ApiError:
+            pass
+        return render_template("home.html", token=token, token_text=TOKEN_TEXT.get(token),
+                               open_flags=open_flags, pending_users=pending_users)
 
     @app.get("/account")
     @login_required
@@ -186,13 +215,14 @@ def create_web_app(server_url, home_dir, port):
                 changed_key = {"username": username, "detail": str(e)}
             except (ApiError, ValueError) as e:
                 flash(str(e), "error")
-        return render_template("send.html", recipients=g.client.directory(),
-                               token=g.client.token_status(), changed_key=changed_key)
+        token = g.client.token_status()
+        return render_template("send.html", recipients=g.client.directory(), token=token,
+                               token_text=TOKEN_TEXT.get(token, token), changed_key=changed_key)
 
     @app.post("/token")
     @login_required
     def token():
-        attempt(g.client.refresh_token, lambda status: f"token: {status}")
+        attempt(g.client.refresh_token, lambda status: PICKUP_TEXT.get(status, status))
         return back("send")
 
     # --- recipient ---
