@@ -1,6 +1,6 @@
-"""the role-permission matrix from docs/design.md (section 3), typed out by
+"""the role-permission matrix from docs/rbac_and_threat_model.md, typed out by
 hand and checked against the code. if someone changes ROLE_PERMISSIONS without
-updating the design doc (or the other way around) this fails."""
+updating the matrix doc (or the other way around) this fails."""
 import pytest
 
 from server.rbac import ROLES, check_role_change, has_permission

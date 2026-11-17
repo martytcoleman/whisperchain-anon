@@ -3,6 +3,8 @@
 ## 1. Goals and Threats
 
 In this project, the goal was to build an anonymous compliment platform for an educational environment, in which students, TAs, and faculty may send and receive anonymous compliments. We set out to build four distinct roles into the system: Sender, Recipient, Moderator, and Admin. 
+
+
 The security goals associated with this project were as follows:
 
 - Confidentiality: the messages senders send should only be readable by the recipient and not the server itself or an admin.
@@ -113,8 +115,8 @@ Some safety mechanisms / security principles I implemented:
 | Commitment                                                              | SHA-256 of the AES key                                              | Hash of the message's AES key that goes in the token-key-signed envelope. Locks in the key without revealing it.                                                                                                                              |
 | Passwords                                                               | scrypt                                                              | Great for passwords bc slow and memory heavy - counter to guessing from stolen DB, every one also has a random salt --> protection against rainbow table attack                                                                               |
 | Session ids                                                             | random, stored only as SHA-256 hashes                               | No working sessions in stolen DB.                                                                                                                                                                                                             |
-| Audit log                                                               | SHA-256 hash chain + Ed25519 signature per entry                    | Chain catches edits/deletions, makes the audit logs tamper-evident and protects their integrity. Signature stops someone from recomputing the chain without the audit key.                                                                                                    |
-| Private key on disk                                                     | encrypted with the user's password, file readable only by the owner | Copied key file not useful without the user's password.                                                                                                                                                                                           |
+| Audit log                                                               | SHA-256 hash chain + Ed25519 signature per entry                    | Chain catches edits/deletions, makes the audit logs tamper-evident and protects their integrity. Signature stops someone from recomputing the chain without the audit key.                                                                    |
+| Private key on disk                                                     | encrypted with the user's password, file readable only by the owner | Copied key file not useful without the user's password.                                                                                                                                                                                       |
 
 
 
@@ -170,5 +172,15 @@ Organized by threat --> counter I would implement given more time.
 | Same password for login and the key file - the server sees the password at login, so a malicious server that also got someone's key file could unlock it.                                                                                       | Use a separate passphrase just for the key file.                                                                                                                     |
 | Metadata - the server still knows who receives messages, how many, and in which round, just not who sent them or what they say.                                                                                                                 | Padding/dummy messages so per-recipient counts are less useful.                                                                                                      |
 | Scope - runs on localhost over plain HTTP, and network level DoS is out of scope.                                                                                                                                                               | HTTPS for a real deployment, plus rate limiting in front of the server.                                                                                              |
+
+
+## 8. Bonus / Extra Credit Features 
+
+I did 3 of the Bonus Advanced Extensions:
+
+- Blind signature token issuance - `common/blind_rsa.py`
+- Frontend that adapts to roles - our web UI menu/homepage adapt to the pages relevant to your role. Also even in CLI mode the help command hides commands your role can't do. Just defense in depth because the server enforces this either way. 
+- Intrusion detection rule  - I did 5 of them: flag threshold per round, too many invalid tokens, frozen token reused, more messages than tokens issued, + account lockout. 
+
 
 

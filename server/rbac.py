@@ -1,7 +1,7 @@
 """role-based access control policy.
 
 ROLE_PERMISSIONS is the one place that says who can do what. it's basically
-the role-permission matrix from docs/design.md (section 3) written in python.
+the role-permission matrix from docs/rbac_and_threat_model.md written in python.
 
 sending a message isn't in here on purpose. if the server checked "is this
 user a sender?" when a message comes in, it would know who sent it. so

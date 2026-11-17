@@ -12,7 +12,6 @@ Documents:
 - `docs/report.md`: my written security design report for final submission
 - `docs/rbac_and_threat_model.md`: role-permission matrix and threat model
 - `docs/audit_log_sample.md`: sample audit log output with analysis
-- `docs/design.md`: the full technical design spec document
 
 ## Requirements
 
