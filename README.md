@@ -5,7 +5,7 @@ In this project, the goal was to build an anonymous compliment platform for an e
 - Confidentiality: the messages senders send should only be readable by the recipient and not the server itself or an admin.
 - Anonymity: no one (server included) should be able to tell who sent a message
 
-In order to accomplish these goals, I had to engage with an important tradeoff we learned in class: the tradeoff between accountability and anonymity, as we had to figure out a way to properly respond/react to abuse from someone we cannot identify. In short, the way we addressed this was by designing the system such that accountability is linked to the anonymous token and not the person behind that token.
+To accomplish these goals, I had to engage with an important tradeoff we learned in class: the tradeoff between accountability and anonymity, as we had to figure out a way to properly respond/react to abuse from someone we cannot identify. In short, the way we addressed this was by designing the system such that accountability is linked to the anonymous token and not the person behind that token. I go into detail on exactly how the system works in my system design report in `docs/report.md`
 
 Documents:
 
