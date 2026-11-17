@@ -1,8 +1,8 @@
 # Sample Audit Log
 
-Generated with `python -m scripts.audit_demo`, which runs a scripted scenario against a fresh
+Run with `python -m scripts.audit_demo`, which runs a scripted scenario against a fresh
 server, prints the resulting audit log, and then tampers with a copy of the database to show
-`verify` catching it.
+`verify` catching it. My sample audit log analysis is in a dedicated section in my main `report.md`.
 
 The analysis of this log is in section 5 of `docs/report.md`.
 

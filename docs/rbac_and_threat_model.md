@@ -37,7 +37,7 @@ declares its rule with a decorator, and an endpoint without one is refused bc we
 
 ## Threat Model
 
-Identifying our assets, we have: essage contents, sender anonymity, metadata (who receives how much, and when), audit log integrity, fair quotas, availability.
+Identifying our assets, we have: message contents, sender anonymity, metadata (who receives how much, and when), audit log integrity, fair quotas, availability.
 
 Identifying our adversaries, we have curious or malicious server operator or Admin, a malicious Sender, malicious Recipient, a curious Moderator, an outsider who steals the database, a network observer.
 

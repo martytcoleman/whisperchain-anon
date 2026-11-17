@@ -4,7 +4,6 @@
 
 In this project, the goal was to build an anonymous compliment platform for an educational environment, in which students, TAs, and faculty may send and receive anonymous compliments. We set out to build four distinct roles into the system: Sender, Recipient, Moderator, and Admin. 
 
-
 The security goals associated with this project were as follows:
 
 - Confidentiality: the messages senders send should only be readable by the recipient and not the server itself or an admin.
@@ -70,11 +69,11 @@ Server stores only the ciphertext, recipient (for delivery), the round, and toke
 1. Bob, logged into the system, fetches `/inbox`, and the server returns only his own messages (`WHERE recipient_id = Bob`), still encrypted.
 2. Bob's client decrypts using his RSA private key, unwrapping the AES key, and the AES key then decrypts the message. The server never sees the plaintext, and delivery logged with just a count.
 
-
-
 ### Flagging
 
-If Bob receives a malicious message - he can report it. To do this, he has to show the mods the message without being able to fabricate one.
+If Bob receives a malicious message - he can report it. To do this, he has to show the mods the message without being able to fabricate one (malicious recipient).
+
+
 The process:
 
 1. Bob sends the server the flagged message's AES symmetric key and a reason for flagging it.
@@ -151,7 +150,7 @@ Weaknesses: Even though the sender timestamps are rounded, they still sit in ord
 
 ## 6. Testing
 
-I run 195 automated tests with pytest. All of them pass in our current implementation. Every test spins up a fresh server with an empty DB, so the tests won't affect one another. The majority of the tests we use act like an attacker, sending malicious requests and checking that the server refuses them. Some run the real client against a real server over http to simulate activity better. For the concurrency testing it sends 20 requests at the same instant from separate threads to check that our race conditions work.
+I run 196 automated tests with pytest. All of them pass in our current implementation. Every test spins up a fresh server with an empty DB, so the tests won't affect one another. The majority of the tests we use act like an attacker, sending malicious requests and checking that the server refuses them. Some run the real client against a real server over http to simulate activity better. For the concurrency testing it sends 20 requests at the same instant from separate threads to check that only one of them gets through (one token per sender, one message per token).
 
 I organized them into 12 separate test files based on the functionality/modules they test. Here's the list of files to check out in our tests/ folder:
 
@@ -174,13 +173,13 @@ Organized by threat --> counter I would implement given more time.
 | Scope - runs on localhost over plain HTTP, and network level DoS is out of scope.                                                                                                                                                               | HTTPS for a real deployment, plus rate limiting in front of the server.                                                                                              |
 
 
-## 8. Bonus / Extra Credit Features 
+
+
+## 8. Bonus / Extra Credit Features
 
 I did 3 of the Bonus Advanced Extensions:
 
 - Blind signature token issuance - `common/blind_rsa.py`
 - Frontend that adapts to roles - our web UI menu/homepage adapt to the pages relevant to your role. Also even in CLI mode the help command hides commands your role can't do. Just defense in depth because the server enforces this either way. 
-- Intrusion detection rule  - I did 5 of them: flag threshold per round, too many invalid tokens, frozen token reused, more messages than tokens issued, + account lockout. 
-
-
+- Intrusion detection rule  - I did 5 of them: flag threshold per round, too many invalid tokens, frozen token reused, more messages than tokens issued, + account lockout.
 
