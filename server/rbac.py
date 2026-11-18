@@ -125,13 +125,17 @@ def require_permission(permission):
     if permission not in ALL_PERMISSIONS:
         raise ValueError(f"unknown permission: {permission}")
 
+    # wrapper replaces the real route function, so these checks run first on
+    # every request and the route only runs if they pass
     def decorator(view):
         @wraps(view)
         def wrapper(*args, **kwargs):
+            # roles come fresh from the db each request (auth.user_for_session),
+            # so a role change takes effect right away
             user = _session_user()
             if user is None:
-                return error(401, "login required")
-            if not has_permission(user["roles"], permission):
+                return error(401, "login required")   # 401 = don't know who you are
+            if not has_permission(user["roles"], permission):   # 403 = know you, not allowed
                 # log the role, not the person. it's still useful for spotting
                 # someone poking at endpoints they shouldn't
                 log("access_denied", role=",".join(user["roles"]) or "none",

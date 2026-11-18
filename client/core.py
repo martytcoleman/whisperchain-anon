@@ -136,15 +136,22 @@ class Client:
             return "have token"
 
         n, e = int(rnd["n"], 16), rnd["e"]
+        # the token is a throwaway key pair just for this epoch, nothing to do
+        # with my account key. its private half never leaves this machine
         token_key = Ed25519PrivateKey.generate()
         token_public = token_key.public_key().public_bytes_raw()
+        # blind it with a random r so the server signs it without seeing it
         blinded, r_blind = blind_rsa.blind(blind_rsa.token_message(rnd["epoch"], token_public), n, e)
+        # this request IS logged in (server checks the sender role and one per
+        # epoch). that's fine, all it ever sees is the blinded number
         try:
             data = self._call("POST", "/tokens", json={"epoch": rnd["epoch"], "blinded": hex(blinded)})
         except ApiError as err:
             if err.status == 409:
                 return str(err)   # e.g. already got one this epoch
             raise
+        # divide r back out: now it's a normal rsa signature on the real token,
+        # which the server has never seen
         signature = blind_rsa.unblind(int(data["blind_signature"], 16), r_blind, n)
         # check it before trusting it. a bad signature here means the server
         # misbehaved, and the token would just be rejected later anyway
@@ -185,8 +192,13 @@ class Client:
         if rnd["round_id"] in token["used_rounds"]:
             raise ValueError("you already sent your message this round")
 
+        # hybrid encryption (client/crypto.py): fresh aes key for the text, that
+        # key wrapped with the recipient's rsa key, plus a commitment (hash of
+        # the aes key) so a flag can be checked later
         envelope = crypto.encrypt_message(text, recipient["public_key"], recipient["id"],
                                           rnd["round_id"], rnd["epoch"])
+        # sign the whole envelope with the token's private key. proves the token
+        # holder wrote exactly this, so a copied token can't send anything else
         token_key = Ed25519PrivateKey.from_private_bytes(b64d(token["private_key"]))
         body = {
             "envelope": envelope,

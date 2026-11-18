@@ -57,6 +57,9 @@ def _timestamp(action):
 
 
 def _hash_entry(prev_hash, ts, action, role, actor_id, details):
+    # the hash covers the previous entry's hash too. that's the chain: change
+    # any old entry and its hash changes, which breaks every link after it
+    #
     # sort_keys + no spaces gives the exact same bytes every time for the same
     # data, which matters because we're hashing it
     body = json.dumps(
@@ -85,6 +88,8 @@ def _append(conn, key, action, role, actor_id, details):
     ts = _timestamp(action)
     prev_hash = get_head(conn)
     entry_hash = _hash_entry(prev_hash, ts, action, role, actor_id, details)
+    # sign the hash with the audit key (ed25519). anyone can recompute hashes,
+    # but only the key holder can make these signatures match
     signature = base64.b64encode(key.sign(entry_hash.encode())).decode()
     conn.execute(
         "INSERT INTO audit_log (ts, action, role, actor_id, details, prev_hash, entry_hash, signature) "
@@ -110,6 +115,8 @@ def verify(conn, public_key, expected_head=None):
     prev_hash = GENESIS_HASH
     seen_hashes = set()
     for row in conn.execute("SELECT * FROM audit_log ORDER BY id"):
+        # three checks per entry: does it link to the one before, does its
+        # content still match its hash, and is the signature on that hash real
         if row["prev_hash"] != prev_hash:
             return False, f"entry {row['id']}: chain broken (an entry before it was changed, removed, or reordered)"
 

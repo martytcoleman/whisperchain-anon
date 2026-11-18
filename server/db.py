@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS policy (
 -- this is the only place a real user gets tied to anything token related.
 -- it's only here to enforce one token per sender per epoch, and it gets
 -- cleared as soon as the epoch ends. no timestamp and no rowid on purpose,
--- so you can't line the row order up with the audit log
+-- so you can't line the row order up with the audit log.
+-- the primary key is the actual limit: a second (user, epoch) insert fails
 CREATE TABLE IF NOT EXISTS issuance (
     user_id INTEGER NOT NULL,
     epoch   INTEGER NOT NULL,

@@ -73,6 +73,8 @@ def send_message():
         return error(400, "token is badly encoded")
     if len(token_public) != 32:
         return error(400, "token public key must be 32 bytes")
+    # the token's anonymous name (sha-256 of its public key). this is what
+    # spent/frozen/flags/the log refer to, and it says nothing about who owns it
     tid = token_id(token_public)
 
     with transaction(db()):
@@ -81,6 +83,8 @@ def send_message():
             return error(409, "no round has been started yet")
 
         # 1. is this a real token, signed by the server for the current epoch?
+        # only our signing key could have made this signature, but since it was
+        # signed blind the server can't tell which sender it went to
         n, e = rounds.public_numbers(current)
         message = blind_rsa.token_message(token["epoch"], token_public)
         if token["epoch"] != current["epoch"] or not blind_rsa.verify(message, token_signature, n, e):
@@ -89,7 +93,8 @@ def send_message():
             alerts.check_invalid_tokens(current["id"])
             return error(403, "invalid or expired token")
 
-        # 2. was this exact envelope signed by that token's key?
+        # 2. was this exact envelope signed by that token's key? someone who just
+        # copied the token (public key + stamp) can't pass this without its private key
         if not verify_signature(envelope, token_public, signature):
             log("invalid_token", role="anonymous", round=current["id"],
                 reason="message signature invalid")

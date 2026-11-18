@@ -60,6 +60,8 @@ def blind(message, n, e):
         # for a real rsa modulus this basically always passes first try
         if math.gcd(r, n) == 1:
             break
+    # r is random, so the blinded number is random too. that's why the server
+    # learns nothing about m when it signs, and can't match it to the token later
     return (m * pow(r, e, n)) % n, r
 
 
